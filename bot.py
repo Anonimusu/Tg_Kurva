@@ -1,8 +1,9 @@
 # bot.py
 import os
 import threading
-from flask import Flask
+import asyncio
 import logging
+from flask import Flask
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
@@ -40,6 +41,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_text = update.message.text or update.message.caption or "Сообщение без текста"
     user_id = update.message.from_user.id
 
+    logger.info(f"Получено сообщение от {user_id}: {message_text}")
+
     # Пересылка в группу модерации
     if GROUP_CHAT_ID:
         try:
@@ -60,34 +63,43 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Ответ пользователю
     try:
-        await update.message.reply_text("Сообщение получено! Админ проверит и опубликует.")
+        await update.message.reply_text("✅ Сообщение получено! Админ проверит и опубликует.")
     except Exception as e:
         logger.error(f"Ошибка при ответе: {e}")
 
-# Функция для запуска polling
+# Функция для запуска polling с правильным event loop
 def start_polling():
-    """Запускает Telegram бота в отдельном потоке"""
+    """Запускает Telegram polling в отдельном потоке с собственным event loop"""
     try:
+        # Создаем новое приложение для этого потока
         application = Application.builder().token(TOKEN).build()
         application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
         
-        logger.info("Запуск Telegram polling...")
+        logger.info("🔄 Запуск Telegram polling...")
+        
+        # Создаем новый event loop для этого потока
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Запускаем polling
         application.run_polling()
+        
     except Exception as e:
-        logger.error(f"Ошибка polling: {e}")
+        logger.error(f"❌ Ошибка polling: {e}")
 
 # Запуск при импорте
 def create_app():
-    """Функция для запуска бота (нужна для Render)"""
+    """Функция для запуска бота"""
     # Запускаем бота в отдельном потоке
     bot_thread = threading.Thread(target=start_polling)
     bot_thread.daemon = True
     bot_thread.start()
     
+    logger.info("🚀 Бот запущен!")
     return flask_app
 
-# Для локального тестирования
+# Для запуска на Render
 if __name__ == "__main__":
     app = create_app()
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
