@@ -4,7 +4,7 @@ import threading
 from flask import Flask
 import logging
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 # Логирование
 logging.basicConfig(
@@ -33,7 +33,7 @@ def health():
     return "OK", 200
 
 # Функция обработки сообщений
-def handle_message(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message is None:
         return
 
@@ -45,13 +45,13 @@ def handle_message(update: Update, context: CallbackContext):
         try:
             if update.message.photo:
                 photo = update.message.photo[-1]
-                context.bot.send_photo(
+                await context.bot.send_photo(
                     chat_id=GROUP_CHAT_ID,
                     photo=photo.file_id,
                     caption=f"Фото от пользователя {user_id}: {message_text}"
                 )
             else:
-                context.bot.send_message(
+                await context.bot.send_message(
                     chat_id=GROUP_CHAT_ID,
                     text=f"Сообщение от пользователя {user_id}: {message_text}"
                 )
@@ -60,31 +60,27 @@ def handle_message(update: Update, context: CallbackContext):
 
     # Ответ пользователю
     try:
-        update.message.reply_text("Сообщение получено! Админ проверит и опубликует.")
+        await update.message.reply_text("Сообщение получено! Админ проверит и опубликует.")
     except Exception as e:
         logger.error(f"Ошибка при ответе: {e}")
 
-# Функция для запуска бота
-def start_bot():
+# Функция для запуска polling
+def start_polling():
     """Запускает Telegram бота в отдельном потоке"""
     try:
-        updater = Updater(TOKEN)
-        dispatcher = updater.dispatcher
+        application = Application.builder().token(TOKEN).build()
+        application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
         
-        # Добавляем обработчик сообщений
-        dispatcher.add_handler(MessageHandler(Filters.all & ~Filters.command, handle_message))
-        
-        logger.info("Запуск Telegram бота...")
-        updater.start_polling()
-        updater.idle()
+        logger.info("Запуск Telegram polling...")
+        application.run_polling()
     except Exception as e:
-        logger.error(f"Ошибка бота: {e}")
+        logger.error(f"Ошибка polling: {e}")
 
 # Запуск при импорте
 def create_app():
     """Функция для запуска бота (нужна для Render)"""
     # Запускаем бота в отдельном потоке
-    bot_thread = threading.Thread(target=start_bot)
+    bot_thread = threading.Thread(target=start_polling)
     bot_thread.daemon = True
     bot_thread.start()
     
