@@ -32,11 +32,7 @@ def ping():
 @app.route("/health")
 def health():
     """Альтернативный эндпоинт для проверки здоровья"""
-    return jsonify({
-        "status": "healthy",
-        "timestamp": time.time(),
-        "service": "telegram-bot"
-    }), 200
+    return "OK", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
