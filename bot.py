@@ -21,6 +21,23 @@ app = Flask(__name__)
 def home():
     return "🤖 Бот работает! Отправь /start в Telegram.", 200
 
+# Добавь этот роут в существующий код
+
+@app.route("/ping")
+def ping():
+    """Эндпоинт для health check от cron-job"""
+    logger.info("🏓 Получен ping запрос")
+    return "Bot is alive! 🚀", 200
+
+@app.route("/health")
+def health():
+    """Альтернативный эндпоинт для проверки здоровья"""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": time.time(),
+        "service": "telegram-bot"
+    }), 200
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     """Обработчик вебхуков с умным меню"""
